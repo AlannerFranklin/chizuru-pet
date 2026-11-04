@@ -1,0 +1,41 @@
+# 运行时产物、素材、隐私，不纳入版本库
+# ---- 大文件 / 媒体 ----
+raw/
+out/
+lora_data/
+review_img/
+chrome-profile/
+bgm/
+incoming/
+work/
+bin/
+assets_i2i/
+*.mp4
+*.mkv
+*.mov
+*.wav
+*.mp3
+*.ncm
+*.ckpt
+*.pth
+*.safetensors
+*.onnx
+*.exe
+
+# ---- 隐私 ----
+memory/
+pet/config.json
+pet/history.json
+pet/settings.json
+workspace/
+review_img/*_votes.jsonl
+review/votes.jsonl
+
+# ---- Python / 缓存 ----
+__pycache__/
+*.pyc
+.venv/
+venv/
+.cache/
+.DS_Store
+Thumbs.db

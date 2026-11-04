@@ -1,0 +1,36 @@
+import json, pathlib
+
+OUT = pathlib.Path(r"E:\RentAGirl\out")
+TAGS = {
+    29: ("営業", "high"), 30: ("素", "high"), 33: ("素", "high"), 34: ("素", "high"),
+    36: ("営業", "high"),
+    192: ("素", "med"),
+    237: ("素", "high"), 252: ("素", "high"), 254: ("素", "high"), 255: ("素", "high"),
+    256: ("素", "high"), 257: ("素", "high"), 258: ("素", "high"), 260: ("素", "high"),
+    262: ("素", "med"),
+    275: ("衝突", "high"), 276: ("衝突", "high"), 278: ("衝突", "high"),
+    279: ("衝突", "high"), 288: ("衝突", "high"),
+    299: ("素", "high"), 300: ("素", "high"), 302: ("素", "high"), 303: ("素", "high"),
+    304: ("素", "high"),
+    306: ("素", "high"), 307: ("素", "high"), 308: ("素", "high"), 309: ("素", "high"),
+    310: ("素", "high"), 311: ("素", "high"), 313: ("衝突", "high"),
+    321: ("素", "high"),
+    326: ("素", "high"), 327: ("素", "high"), 333: ("素", "high"), 338: ("衝突", "high"),
+}
+lines = json.loads((OUT / "S01E08.asr.json").read_text(encoding="utf-8"))
+zh = {}
+p = OUT / "S01E08.jsonl"
+if p.exists():
+    for l in p.open(encoding="utf-8"):
+        r = json.loads(l)
+        if r.get("zh"):
+            zh[round(r["start"], 1)] = r["zh"]
+rows = []
+for i, (mode, conf) in sorted(TAGS.items()):
+    l = lines[i]
+    rows.append({"ep": "S01E08", "idx": i, "start": l["start"], "end": l["end"],
+                 "ja": l["ja"], "zh": zh.get(round(l["start"], 1), ""), "mode": mode, "conf": conf})
+with open(OUT / "chizuru_gold_S01E08.jsonl", "w", encoding="utf-8") as f:
+    for r in rows:
+        f.write(json.dumps(r, ensure_ascii=False) + "\n")
+print("S01E08 gold:", len(rows))

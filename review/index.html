@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>千鹤语音审核</title>
+<style>
+  :root { --bg:#15161a; --card:#1f2127; --fg:#e8e8ea; --dim:#8a8d96; --ok:#4caf7d; --bad:#e06c75; --skip:#6a8caf; --accent:#e696aa; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: "Microsoft YaHei", system-ui, sans-serif; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 22px 18px 60px; }
+  .bar { display:flex; align-items:center; gap:14px; margin-bottom:18px; font-size:13px; color:var(--dim); }
+  .prog { flex:1; height:8px; background:#2a2d34; border-radius:4px; overflow:hidden; }
+  .prog > i { display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
+  .card { background:var(--card); border-radius:14px; padding:22px; }
+  .meta { display:flex; gap:10px; flex-wrap:wrap; font-size:12px; color:var(--dim); margin-bottom:14px; }
+  .tag { background:#2a2d34; border-radius:6px; padding:2px 8px; }
+  .ja { font-size:25px; line-height:1.6; margin:6px 0 14px; font-family:"Yu Gothic UI","Meiryo",sans-serif; }
+  .zh { font-size:17px; color:#b9bcc4; margin-bottom:22px; }
+  audio { width:100%; margin:6px 0 18px; }
+  .btns { display:flex; gap:12px; }
+  button { flex:1; padding:16px; font-size:16px; border:none; border-radius:10px; cursor:pointer; color:#fff; font-weight:600; }
+  #ok { background:var(--ok); } #bad { background:var(--bad); } #skip { background:var(--skip); }
+  button:disabled { opacity:.4; cursor:default; }
+  .hint { margin-top:14px; font-size:12px; color:var(--dim); text-align:center; }
+  select { background:#2a2d34; color:var(--fg); border:none; border-radius:6px; padding:6px 10px; font-size:13px; }
+  .done { text-align:center; padding:40px 0; font-size:18px; color:var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <span id="counter">0 / 0</span>
+    <div class="prog"><i id="prog"></i></div>
+    <select id="filter">
+      <option value="all">全部</option>
+      <option value="gold">只看人工金标</option>
+      <option value="auto">只看自动标注</option>
+      <option value="unvoted">只看没评过的</option>
+    </select>
+  </div>
+
+  <div class="card" id="card">
+    <div class="meta" id="meta"></div>
+    <div class="ja" id="ja"></div>
+    <div class="zh" id="zh"></div>
+    <audio id="player" controls autoplay></audio>
+    <div class="btns">
+      <button id="ok">好听（1）</button>
+      <button id="bad">有问题（2）</button>
+      <button id="skip">跳过（3）</button>
+    </div>
+    <div class="hint">键盘：1 好听 / 2 有问题 / 3 跳过 / R 重播 / ← 上一句　·　标记会自动保存</div>
+  </div>
+  <div class="done" id="done" style="display:none">全部评完了 🎉</div>
+</div>
+<script>
+let items = [], idx = 0, voted = {};
+const $ = id => document.getElementById(id);
+
+async function boot() {
+  items = await (await fetch('/api/index')).json();
+  const stats = await (await fetch('/api/stats')).json();
+  // 读取已有标记（只用于显示进度）
+  render();
+}
+
+function list() {
+  const f = $('filter').value;
+  if (f === 'all') return items;
+  if (f === 'unvoted') return items.filter(it => !voted[it.id]);
+  return items.filter(it => it.src === f);
+}
+
+function render() {
+  const L = list();
+  if (!L.length) { $('card').style.display='none'; $('done').style.display='block'; return; }
+  $('card').style.display='block'; $('done').style.display='none';
+  if (idx >= L.length) idx = 0;
+  const it = L[idx];
+  $('counter').textContent = `${idx+1} / ${L.length}　好 ${Object.values(voted).filter(v=>v==='ok').length}`;
+  $('prog').style.width = (100*(idx+1)/L.length) + '%';
+  const tags = [
+    it.src === 'gold' ? '人工金标' : '自动标注',
+    it.mode, `${it.dur}s`, `相似 ${it.sim}`, it.ep,
+    voted[it.id] ? `已标:${voted[it.id]}` : ''
+  ].filter(Boolean).map(t => `<span class="tag">${t}</span>`).join('');
+  $('meta').innerHTML = tags;
+  $('ja').textContent = it.ja;
+  $('zh').textContent = it.zh || '（无中文字幕）';
+  const p = $('player');
+  p.src = '/audio/' + encodeURIComponent(it.id);
+  p.play().catch(()=>{});
+  window._cur = it;
+}
+
+async function vote(v) {
+  const it = window._cur; if (!it) return;
+  voted[it.id] = v;
+  await fetch('/api/vote', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id: it.id, vote: v, ep: it.ep, src: it.src, mode: it.mode, sim: it.sim, t: Date.now()})});
+  idx++; render();
+}
+
+$('ok').onclick = () => vote('ok');
+$('bad').onclick = () => vote('bad');
+$('skip').onclick = () => vote('skip');
+$('filter').onchange = () => { idx = 0; render(); };
+
+document.addEventListener('keydown', e => {
+  if (e.key === '1') vote('ok');
+  else if (e.key === '2') vote('bad');
+  else if (e.key === '3') vote('skip');
+  else if (e.key.toLowerCase() === 'r') { const p=$('player'); p.currentTime=0; p.play(); }
+  else if (e.key === 'ArrowLeft') { idx = Math.max(0, idx-1); render(); }
+});
+
+boot();
+</script>
+</body>
+</html>
