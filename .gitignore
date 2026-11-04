@@ -39,3 +39,7 @@ venv/
 .cache/
 .DS_Store
 Thumbs.db
+
+# 例外：文档里的演示视频
+!docs/demo.mp4
+!docs/images/*
